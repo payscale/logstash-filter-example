@@ -9,7 +9,7 @@ describe LogStash::Filters::FieldMap do
         fieldmap {
           src_field => 'message'
           dst_field => 'mapped_message'
-          delimiter => ' '
+          regex => '[[:blank:]]'
           keys => ['Greeting', 'Target']
         }
       }

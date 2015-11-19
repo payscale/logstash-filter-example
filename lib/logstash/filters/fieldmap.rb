@@ -34,8 +34,8 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
   # this filter will overwrite any data already in dst_field
   config :dst_field, :validate => :string, :default => "mapped_message"
 
-  # Delimiter to split src_field by
-  config :delimiter, :validate => :string, :default => " "
+  # Regex to split src_field by
+  config :regex, :validate => :string, :default => '[[:space:]]'
 
   # List of keys to use in the dst map
   config :keys, :validate => :array, :required => true
@@ -54,11 +54,7 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
     if event[@src_field]
       #  split the src field on delimiter then check if that length matches
       #  the key lenght, if not, explode
-      if @delimiter != nil 
-        split_src = event[@src_field].split(@delimiter)
-      else
-        split_src = event[$src_field].split()
-      end
+      split_src = event[@src_field].split(/#{@regex}/)
       @logger.debug? and @logger.debug("split_src is: ", :split_src => split_src)
       if split_src.length == @keys.length
         event[@dst_field] = {}  #  don't need to save off the source data, already split into split_src
