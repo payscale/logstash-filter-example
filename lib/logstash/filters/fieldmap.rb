@@ -62,7 +62,10 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
         split_src.map do |val| 
           val = val.strip
           if val.include?('{')
-            val = LogStash::Json.load(val.gsub("\\", ""))
+            begin
+              val = LogStash::Json.load(val.gsub("\\", ""))
+            rescue LogStash::Json::ParserError  # if its not valid json leave it alone
+            end
           end
           event[@dst_field][@keys[idx]] = val 
           idx=idx+1
