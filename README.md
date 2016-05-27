@@ -1,8 +1,49 @@
-# Logstash Plugin
+# Logstash Filter fieldmap Plugin
 
-This is a plugin for [Logstash](https://github.com/elastic/logstash).
+This is basically a "advanced csv" plugin for [Logstash](https://github.com/elastic/logstash). The column delimiter can be any regex expression.
 
 It is fully free and fully open source. The license is Apache 2.0, meaning you are pretty much free to use it however you want in whatever way.
+
+## Examples
+
+You can see several examples in the test file (`./spec/filters/fieldmap_spec.rb`).
+
+This example will:
+ * split up the `message` into components separated by 1 or 2 whitespaces.
+ * respect strings wrapped in double-quotes ("), and doesn't break those up
+ * drop the results into `mapped_message`
+ * add a value into `tags`, indicating that the fieldmap failed.
+
+Example configuration:
+```ruby
+filter {
+  fieldmap {
+    src_field => 'message'
+    dst_field => 'mapped_message'
+    regex => '[[:blank]]{1,2}'
+    text_qualifier => '"'
+    keys => ['timestamp', 'log']
+  }
+}
+```
+
+Given the input of:
+```ruby
+{
+  'message' => '"05/19/2016 00:00:01"  "this is a super important log message"''
+}
+```
+
+It will output
+```ruby
+{
+  'message' => '"05/19/2016 00:00:01"  "this is a super important log message"''
+  'mapped_message' => {
+    'timestamp' => '05/19/2016 00:00:01'
+    'log' => 'this is a super important log message'
+  }
+}
+```
 
 ## Documentation
 
