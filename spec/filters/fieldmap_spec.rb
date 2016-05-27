@@ -44,7 +44,7 @@ describe LogStash::Filters::FieldMap do
     end
   end
 
-  describe "should error on field to value mismatch" do
+  describe "should fail on field to value mismatch" do
     let(:config) do <<-CONFIG
       filter {
         fieldmap {
@@ -99,6 +99,26 @@ describe LogStash::Filters::FieldMap do
       expect(subject['mapped_message']).to eq({'timestamp' => '2016-05-26 05:00:00PST this is more words', 'log' => 'jibberish', 'log2' => 'ron swanson'})
     end
   end
+
+  describe "should fail on field to unmatched ' mismatch" do
+    let(:config) do <<-CONFIG
+      filter {
+        fieldmap {
+          src_field => 'message'
+          dst_field => 'mapped_message'
+          text_qualifier => "'"
+          keys => ['timestamp', 'log']
+        }
+      }
+    CONFIG
+    end
+
+    sample("message" => "'2012-03-03 01:10:01' 'Do not 'touch that dial!'") do
+      expect(subject).to include("message")
+      expect(subject['tags']).to eq(["_fieldmap_unmatched_text_qualifier"])
+    end
+  end
+
 
 
 end

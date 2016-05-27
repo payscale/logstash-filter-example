@@ -37,7 +37,7 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
   # Regex to split src_field by
   config :regex, :validate => :string, :default => '[[:space:]]'
 
-  # Regroup things that were unwantedly split by the regex
+  # Regroup things that were unwantedly split by the regex. This value can not be whitespace(s).
   config :text_qualifier, :validate => :string, :default => false
 
   # List of keys to use in the dst map
@@ -45,6 +45,8 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
 
   # Append value to the tag field when the mapping failed
   config :map_failure, :validate => :string, :default => "_fieldmapfailed"
+  config :invalid_text_qualifier_failure, :validate => :string, :default => "_fieldmap_invalid_text_qualifier"
+  config :unmatched_text_qualifier_failure, :validate => :string, :default => "_fieldmap_unmatched_text_qualifier"
 
   public
   def register
@@ -62,20 +64,31 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
       @logger.debug? and @logger.debug("split_src is: ", :split_src => split_src)
 
       if @text_qualifier
+        # protecting ourselves against bad things that could happen
+        if @text_qualifier.strip.length == 0
+            add_tag(event, @invalid_text_qualifier_failure)
+        end
+
         split_src_new_idx = split_src_orig_idx = 0
         qualifier_start_idx = -1
         split_src.map do |val|
 
-          val = val.strip   # this will cause problems if the text_qualifier is a space character
+          val = val.strip
 
           # Handle the case where we're in a qualified string
-          if val.start_with? @text_qualifier
-            qualifier_start_idx = split_src_orig_idx
-          elsif val.end_with? @text_qualifier
+          if val.end_with? @text_qualifier
+
+            # We caught an string "ending with" a quote before it starts with one. ruh roh.
+            if qualifier_start_idx < 0
+              add_tag(event, @unmatched_text_qualifier_failure)
+            end
+
             # TODO make this put in whatever it found to split on... not just a space
             val = split_src[qualifier_start_idx..split_src_orig_idx].join(' ')
             val = val.tr(@text_qualifier, "") # strips off the qualifier marks
             qualifier_start_idx = -1
+          elsif val.start_with? @text_qualifier
+            qualifier_start_idx = split_src_orig_idx
           end
 
           # this is the "not in the middle of a qualified string" (a.k.a normal) case
@@ -88,9 +101,7 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
 
           # Handle the case where there is no "end" to the qualified string
           if split_src_orig_idx >= split_src.length
-            event["tags"] ||= []
-            event["tags"] << @map_failure unless event["tags"].include?(@map_failure)
-            @logger.info? and @logger.info("Event failed field map")
+            add_tag(event, @unmatched_text_qualifier_failure)
           end
         end
 
@@ -119,13 +130,23 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
         end
         filter_matched(event)
       else
-        event["tags"] ||= []
-        event["tags"] << @map_failure unless event["tags"].include?(@map_failure)
-        @logger.info? and @logger.info("Event failed field map")
+        add_tag(event, @map_failure)
       end
     end
 
   @logger.debug? and @logger.debug("Event now: ", :event => event)
 
   end # def filter
+
+  ##
+  ## Private methods below here
+  ##
+  private
+
+  def add_tag(event, tag)
+    event["tags"] ||= []
+    event["tags"] << tag unless event["tags"].include?(tag)
+    @logger.info? and @logger.info("Event failed field map: " + tag)
+  end
+
 end # class LogStash::Filters::Example

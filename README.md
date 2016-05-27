@@ -13,6 +13,8 @@ This example will:
  * respect strings wrapped in double-quotes ("), and doesn't break those up
  * drop the results into `mapped_message`
  * add a value into `tags`, indicating that the fieldmap failed.
+
+Example configuration:
 ```ruby
 filter {
   fieldmap {
