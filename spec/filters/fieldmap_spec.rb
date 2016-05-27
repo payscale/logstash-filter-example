@@ -43,4 +43,62 @@ describe LogStash::Filters::FieldMap do
       expect(subject['mapped_message']).to eq({'Greeting' => 'Hello', 'Target' => 'Haters'})
     end
   end
+
+  describe "should error on field to value mismatch" do
+    let(:config) do <<-CONFIG
+      filter {
+        fieldmap {
+          src_field => 'message'
+          dst_field => 'mapped_message'
+          keys => ['timestamp', 'log']
+        }
+      }
+    CONFIG
+    end
+
+    sample("message" => '"2016-05-26 05:00:00PST" jibberish') do
+      expect(subject).to include("message")
+      expect(subject['tags']).to eq(["_fieldmapfailed"])
+    end
+  end
+
+  describe "should successfully allow \" to quote strings" do
+    let(:config) do <<-CONFIG
+      filter {
+        fieldmap {
+          src_field => 'message'
+          dst_field => 'mapped_message'
+          text_qualifier => '"'
+          keys => ['timestamp', 'log']
+        }
+      }
+    CONFIG
+    end
+
+    sample("message" => '"2016-05-26 05:00:00PST" jibberish') do
+      expect(subject).to include("message")
+      expect(subject['mapped_message']).to eq({'timestamp' => '2016-05-26 05:00:00PST', 'log' => 'jibberish'})
+    end
+  end
+
+  describe "should successfully allow qualification on several strings" do
+    let(:config) do <<-CONFIG
+      filter {
+        fieldmap {
+          src_field => 'message'
+          dst_field => 'mapped_message'
+          text_qualifier => '"'
+          keys => ['timestamp', 'log', 'log2']
+        }
+      }
+    CONFIG
+    end
+
+    sample("message" => '"2016-05-26 05:00:00PST this is more words" jibberish "ron swanson"') do
+      expect(subject).to include("message")
+      expect(subject['mapped_message']).to eq({'timestamp' => '2016-05-26 05:00:00PST this is more words', 'log' => 'jibberish', 'log2' => 'ron swanson'})
+    end
+  end
+
+
 end
