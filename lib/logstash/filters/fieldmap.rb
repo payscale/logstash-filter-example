@@ -60,7 +60,9 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
     if event.get(@src_field)
       #  split the src field on delimiter then check if that length matches
       #  the key lenght, if not, explode
-      split_src = event.get(@src_field).split(/#{@regex}/)
+      src =  event.get(@src_field).dup
+      split_src = src.split(/#{@regex}/)
+      event.set("split_source", split_src)
       @logger.debug? and @logger.debug("split_src is: ", :split_src => split_src)
 
       if @text_qualifier
@@ -115,7 +117,8 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
       end
 
       if split_src.length == @keys.length
-        event.set(@dst_field, {}) #  don't need to save off the source data, already split into split_src
+        hash = {}
+
         idx = 0
         split_src.map do |val|
           val = val.strip
@@ -125,12 +128,16 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
             rescue LogStash::Json::ParserError  # if its not valid json leave it alone
             end
           end
-          if val.nil?
-            val = ""
+
+          if val == "NA"
+            val = nil
           end
-          event.set("[@dst_field][@keys[idx]]", val)
+
+          hash[@keys[idx]] = val
           idx=idx+1
         end
+
+        event.set(@dst_field, hash)
         filter_matched(event)
       else
         add_tag(event, @map_failure)
