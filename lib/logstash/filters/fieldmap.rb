@@ -158,7 +158,7 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
         event.set("tags", [])
     end
     unless event.get("tags").include?(tag)
-        event.set("tags", (event.get("tags") << tag)) #<< tag unless event.get("tags").include?(tag)
+        event.set("tags", (event.get("tags") << tag))
     end
     @logger.info? and @logger.info("Event failed field map: " + tag)
   end
