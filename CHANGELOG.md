@@ -1,3 +1,6 @@
+## 0.1.0 aidanl
+ - Update to 5.6.x compatibility
+
 ## 0.0.3
  - Adding support for quoted strings via the `text_qualifier` attribute
 

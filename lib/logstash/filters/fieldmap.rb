@@ -57,10 +57,12 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
   def filter(event)
   @logger.debug? and @logger.debug("Running fieldmap filter", :event => event)
 
-    if event[@src_field]
+    if event.get(@src_field)
       #  split the src field on delimiter then check if that length matches
       #  the key lenght, if not, explode
-      split_src = event[@src_field].split(/#{@regex}/)
+      src =  event.get(@src_field).dup
+      split_src = src.split(/#{@regex}/)
+      event.set("split_source", split_src)
       @logger.debug? and @logger.debug("split_src is: ", :split_src => split_src)
 
       if @text_qualifier
@@ -115,7 +117,8 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
       end
 
       if split_src.length == @keys.length
-        event[@dst_field] = {}  #  don't need to save off the source data, already split into split_src
+        hash = {}
+
         idx = 0
         split_src.map do |val|
           val = val.strip
@@ -125,9 +128,16 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
             rescue LogStash::Json::ParserError  # if its not valid json leave it alone
             end
           end
-          event[@dst_field][@keys[idx]] = val
+
+          if val == "NA"
+            val = nil
+          end
+
+          hash[@keys[idx]] = val
           idx=idx+1
         end
+
+        event.set(@dst_field, hash)
         filter_matched(event)
       else
         add_tag(event, @map_failure)
@@ -144,9 +154,13 @@ class LogStash::Filters::FieldMap < LogStash::Filters::Base
   private
 
   def add_tag(event, tag)
-    event["tags"] ||= []
-    event["tags"] << tag unless event["tags"].include?(tag)
-    @logger.info? and @logger.info("Event failed field map: " + tag)
+    if (event.get("tags").nil? || event.get("tags") == false)
+        event.set("tags", [])
+    end
+    unless event.get("tags").include?(tag)
+        event.set("tags", (event.get("tags") << tag))
+    end
+    #@logger.info? and @logger.info("Event failed field map: " + tag)
   end
 
 end # class LogStash::Filters::Example
